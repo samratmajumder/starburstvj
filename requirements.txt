@@ -1,0 +1,8 @@
+numpy>=1.19.0
+opencv-python>=4.5.0
+opencv-contrib-python>=4.5.0
+pyaudio>=0.2.11
+librosa>=0.8.0
+mediapipe
+pygame>=2.0.0
+PyQt5>=5.15.0
