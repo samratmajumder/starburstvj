@@ -45,6 +45,9 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
         self.effect_manager.load_effects()
         self.update_effect_list()
         
+        # Initialize distortion level
+        self.video_capture.set_distortion_level(0)
+        
         # Load background images
         self.background_images = []
         for bg_path in config.BACKGROUND_IMAGES:
@@ -79,8 +82,12 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
         
         # Controls widget and layout (can be hidden in fullscreen mode)
         self.controls_widget = QtWidgets.QWidget()
-        controls_layout = QtWidgets.QHBoxLayout(self.controls_widget)
-        controls_layout.setContentsMargins(0, 0, 0, 0)
+        main_controls_layout = QtWidgets.QVBoxLayout(self.controls_widget)
+        main_controls_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Top controls row (buttons)
+        controls_layout = QtWidgets.QHBoxLayout()
+        main_controls_layout.addLayout(controls_layout)
         
         # Start/stop button
         self.start_button = QtWidgets.QPushButton("Start")
@@ -97,6 +104,11 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
         self.random_button.clicked.connect(self.random_effect)
         controls_layout.addWidget(self.random_button)
         
+        # Manage effects button
+        self.manage_effects_button = QtWidgets.QPushButton("Manage Effects")
+        self.manage_effects_button.clicked.connect(self.show_effects_manager)
+        controls_layout.addWidget(self.manage_effects_button)
+        
         # Fullscreen button
         self.fullscreen_button = QtWidgets.QPushButton("Fullscreen")
         self.fullscreen_button.clicked.connect(lambda: self.toggle_fullscreen(None))
@@ -105,6 +117,28 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
         # FPS counter
         self.fps_label = QtWidgets.QLabel("FPS: 0")
         controls_layout.addWidget(self.fps_label)
+        
+        # Bottom row for sliders
+        sliders_layout = QtWidgets.QHBoxLayout()
+        main_controls_layout.addLayout(sliders_layout)
+        
+        # Distortion level control
+        distortion_layout = QtWidgets.QHBoxLayout()
+        distortion_layout.addWidget(QtWidgets.QLabel("Distortion:"))
+        
+        self.distortion_slider = QtWidgets.QSlider(Qt.Horizontal)
+        self.distortion_slider.setMinimum(0)
+        self.distortion_slider.setMaximum(100)
+        self.distortion_slider.setValue(0)
+        self.distortion_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.distortion_slider.setTickInterval(10)
+        self.distortion_slider.valueChanged.connect(self.change_distortion_level)
+        distortion_layout.addWidget(self.distortion_slider)
+        
+        self.distortion_value_label = QtWidgets.QLabel("0%")
+        distortion_layout.addWidget(self.distortion_value_label)
+        
+        sliders_layout.addLayout(distortion_layout)
         
         # Add controls to main layout
         self.main_layout.addWidget(self.controls_widget)
@@ -127,7 +161,7 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
     def update_effect_list(self):
         """Update the effect list in the combo box."""
         self.effect_combo.clear()
-        effect_names = self.effect_manager.get_effect_names()
+        effect_names = self.effect_manager.get_enabled_effect_names()
         for name in effect_names:
             self.effect_combo.addItem(name)
         
@@ -138,6 +172,11 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
     def random_effect(self):
         """Switch to a random effect."""
         self.effect_manager.switch_to_random_effect()
+        
+    def change_distortion_level(self, value):
+        """Set the distortion level on the video capture."""
+        self.video_capture.set_distortion_level(value)
+        self.distortion_value_label.setText(f"{value}%")
         
     def toggle_running(self):
         """Start or stop the application."""
@@ -249,6 +288,65 @@ class VideoJockeyApp(QtWidgets.QMainWindow):
             self.fullscreen_mode = False
             self.controls_widget.show()
             self.showNormal()
+    
+    def show_effects_manager(self):
+        """Show a dialog to manage (enable/disable) effects."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Manage Effects")
+        dialog.setMinimumWidth(400)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        
+        # Create a list widget to show all effects
+        list_widget = QtWidgets.QListWidget()
+        
+        # Add all effects to the list widget with checkboxes
+        all_effects = self.effect_manager.get_effect_names()
+        for effect_name in all_effects:
+            item = QtWidgets.QListWidgetItem(effect_name)
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            
+            # Set the checkbox state based on whether the effect is enabled
+            if self.effect_manager.is_effect_enabled(effect_name):
+                item.setCheckState(QtCore.Qt.Checked)
+            else:
+                item.setCheckState(QtCore.Qt.Unchecked)
+                
+            # Disable the checkbox if it's the current effect
+            if effect_name == self.effect_manager.current_effect_name:
+                item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEnabled)
+                
+            list_widget.addItem(item)
+            
+        layout.addWidget(list_widget)
+        
+        # Add buttons for OK and Cancel
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+        
+        # Show the dialog
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            # Process the changes
+            for i in range(list_widget.count()):
+                item = list_widget.item(i)
+                effect_name = item.text()
+                
+                # Skip the current effect (it's always enabled)
+                if effect_name == self.effect_manager.current_effect_name:
+                    continue
+                
+                # Enable or disable based on checkbox state
+                if item.checkState() == QtCore.Qt.Checked:
+                    self.effect_manager.enable_effect(effect_name)
+                else:
+                    self.effect_manager.disable_effect(effect_name)
+                    
+            # Update the effect list in the combo box
+            self.update_effect_list()
     
     def closeEvent(self, event):
         """Handle window close event."""

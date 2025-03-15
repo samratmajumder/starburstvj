@@ -15,6 +15,7 @@ from videojockey.core import config
 class EffectManager:
     def __init__(self):
         self.effects = {}
+        self.disabled_effects = set()
         self.current_effect_name = None
         self.next_effect_name = None
         self.transition_start_time = 0
@@ -63,6 +64,61 @@ class EffectManager:
         """
         return list(self.effects.keys())
         
+    def get_enabled_effect_names(self):
+        """Get names of all enabled effects.
+        
+        Returns:
+            list: Names of available and enabled effects
+        """
+        return [name for name in self.effects.keys() if name not in self.disabled_effects]
+        
+    def disable_effect(self, effect_name):
+        """Disable an effect without removing it from the system.
+        
+        Args:
+            effect_name (str): Name of the effect to disable
+        
+        Returns:
+            bool: True if the effect was disabled, False otherwise
+        """
+        if effect_name in self.effects and effect_name not in self.disabled_effects:
+            if effect_name == self.current_effect_name:
+                # Don't disable the current effect
+                return False
+                
+            self.disabled_effects.add(effect_name)
+            if config.DEBUG:
+                print(f"Disabled effect: {effect_name}")
+            return True
+        return False
+        
+    def enable_effect(self, effect_name):
+        """Re-enable a previously disabled effect.
+        
+        Args:
+            effect_name (str): Name of the effect to enable
+            
+        Returns:
+            bool: True if the effect was enabled, False otherwise
+        """
+        if effect_name in self.effects and effect_name in self.disabled_effects:
+            self.disabled_effects.remove(effect_name)
+            if config.DEBUG:
+                print(f"Enabled effect: {effect_name}")
+            return True
+        return False
+        
+    def is_effect_enabled(self, effect_name):
+        """Check if an effect is enabled.
+        
+        Args:
+            effect_name (str): Name of the effect to check
+            
+        Returns:
+            bool: True if the effect is enabled, False otherwise
+        """
+        return effect_name in self.effects and effect_name not in self.disabled_effects
+        
     def set_effect(self, effect_name):
         """Set the current effect.
         
@@ -78,7 +134,7 @@ class EffectManager:
     def switch_to_random_effect(self):
         """Switch to a random effect different from the current one."""
         available_effects = [name for name in self.effects.keys() 
-                             if name != self.current_effect_name]
+                             if name != self.current_effect_name and name not in self.disabled_effects]
         if available_effects:
             random_effect = random.choice(available_effects)
             if config.DEBUG:

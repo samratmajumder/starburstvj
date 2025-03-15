@@ -1,6 +1,7 @@
 """
 Video capture module for ingesting video streams from camera or RTSP.
 Uses OpenCV with macOS VideoToolbox acceleration when available.
+Includes distortion processor for applying effects to the raw video stream.
 """
 
 import cv2
@@ -9,6 +10,7 @@ import time
 import numpy as np
 
 from videojockey.core import config
+from videojockey.core.video_distortion import VideoDistortion
 
 class VideoCapture:
     def __init__(self):
@@ -19,6 +21,7 @@ class VideoCapture:
         self.lock = threading.Lock()
         self.fps = config.FPS
         self.last_frame_time = 0
+        self.distortion_processor = VideoDistortion()
         
     def start(self):
         """Start video capture in a separate thread."""
@@ -94,13 +97,32 @@ class VideoCapture:
                 time.sleep(0.01)
                 
     def get_frame(self):
-        """Get the latest frame.
+        """Get the latest frame with distortion applied if enabled.
         
         Returns:
             numpy.ndarray: Latest video frame or None if not available
         """
         with self.lock:
             if self.frame is not None:
-                # Return a copy to avoid thread issues
-                return self.frame.copy()
+                # Get a copy to avoid thread issues
+                frame_copy = self.frame.copy()
+                
+                # Apply distortion if level > 0
+                return self.distortion_processor.process_frame(frame_copy)
             return None
+            
+    def set_distortion_level(self, level):
+        """Set the distortion level (0-100).
+        
+        Args:
+            level (int): Distortion level from 0 (none) to 100 (maximum)
+        """
+        self.distortion_processor.set_distortion_level(level)
+        
+    def get_distortion_level(self):
+        """Get the current distortion level.
+        
+        Returns:
+            int: Current distortion level (0-100)
+        """
+        return self.distortion_processor.get_distortion_level()

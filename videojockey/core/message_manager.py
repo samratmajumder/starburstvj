@@ -149,7 +149,10 @@ class MessageManager:
         
         # Get text position
         if callable(self.position):
-            pos_x, pos_y = self.position(width, height, text_width, text_height)
+            try: 
+                pos_x, pos_y = self.position(width, height, text_width, text_height)
+            except:
+                pos_x, pos_y = 0,0
         else:
             pos_x, pos_y = self.position
         

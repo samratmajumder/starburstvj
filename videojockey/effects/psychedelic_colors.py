@@ -80,7 +80,10 @@ def process_frame(frame, audio_info):
     if len(audio_info["frequency_bands"]) > 0:
         bass_intensity = audio_info["frequency_bands"][0] * 8
         if bass_intensity > 0.5:
-            noise = np.random.randint(0, int(50 * bass_intensity), result.shape[:2], dtype=np.uint8)
+            try:
+	        noise = np.random.randint(0, int(50 * bass_intensity), result.shape[:2], dtype=np.uint8)
+            except:
+                noise = 50
             noise_mask = np.random.random(result.shape[:2]) < (bass_intensity * 0.1)
             noise_mask = noise_mask[:, :, np.newaxis].repeat(3, axis=2)
             result = np.where(noise_mask, result + noise[:, :, np.newaxis], result)
